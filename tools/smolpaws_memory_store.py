@@ -55,7 +55,7 @@ def memory_root() -> Path:
         if persistence_dir
         else Path.home() / ".openhands"
     )
-    return base / "smolpaws" / "insider" / "memory"
+    return base / "smolpaws" / "memory"
 
 
 class SmolPawsMemoryStore:

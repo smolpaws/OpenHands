@@ -151,7 +151,7 @@ class SmolPawsMemoryExecutor(
 _DESCRIPTION = """Read and maintain the memory shared by all insider SmolPaws conversations.
 
 The store is private to the local OpenHands installation at
-`~/.openhands/smolpaws/insider/memory/` (or the configured OpenHands persistence root).
+`~/.openhands/smolpaws/memory/` (or the configured OpenHands persistence root).
 It is separate from generic OpenHands memory and from other SmolPaws faces.
 
 Read at use:

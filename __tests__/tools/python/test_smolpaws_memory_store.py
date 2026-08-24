@@ -22,9 +22,7 @@ class MemoryRootTests(unittest.TestCase):
     def test_uses_openhands_persistence_dir_when_set(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.dict(os.environ, {"OH_PERSISTENCE_DIR": directory}):
-                self.assertEqual(
-                    memory_root(), Path(directory) / "smolpaws" / "insider" / "memory"
-                )
+                self.assertEqual(memory_root(), Path(directory) / "smolpaws" / "memory")
 
     def test_falls_back_to_openhands_under_home(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -34,7 +32,7 @@ class MemoryRootTests(unittest.TestCase):
             ):
                 self.assertEqual(
                     memory_root(),
-                    Path(directory) / ".openhands" / "smolpaws" / "insider" / "memory",
+                    Path(directory) / ".openhands" / "smolpaws" / "memory",
                 )
 
 
