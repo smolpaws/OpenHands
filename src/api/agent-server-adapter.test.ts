@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { CANVAS_UI_CLIENT_TOOL_NAME } from "#/constants/canvas-ui";
 import { LAUNCH_CHILD_CONVERSATION_TOOL_NAME } from "#/constants/child-conversation";
+import {
+  SMOLPAWS_MEMORY_TOOL_MODULE,
+  SMOLPAWS_MEMORY_TOOL_NAME,
+} from "#/constants/smolpaws-memory";
 import { DEFAULT_SETTINGS } from "#/services/settings";
 import type { Settings } from "#/types/settings";
 import {
@@ -262,7 +266,50 @@ describe("buildStartConversationRequest — agentProfileId path", () => {
     expect(suffix).toContain("OPENHANDS_API_KEY");
   });
 
-  it("does not inject the insider suffix for non-insider conversations", () => {
+  it("attaches the server-executed memory tool only to insider conversations", () => {
+    const insider = buildStartConversationRequest({
+      settings: makeSettings({ agent_kind: "openhands" }),
+      extraTags: { smolpaws: "insider" },
+    });
+    const regular = buildStartConversationRequest({
+      settings: makeSettings({ agent_kind: "openhands" }),
+    });
+
+    expect(insider.agent_settings?.tools).toContainEqual({
+      name: SMOLPAWS_MEMORY_TOOL_NAME,
+      params: {},
+    });
+    expect(insider.tool_module_qualnames).toEqual({
+      [SMOLPAWS_MEMORY_TOOL_NAME]: SMOLPAWS_MEMORY_TOOL_MODULE,
+    });
+    expect(regular.agent_settings?.tools).not.toContainEqual({
+      name: SMOLPAWS_MEMORY_TOOL_NAME,
+      params: {},
+    });
+    expect(regular.tool_module_qualnames).toBeUndefined();
+  });
+
+  it("strips settings-provided copies of the reserved memory capability", () => {
+    const settings = makeSettings({
+      agent_kind: "openhands",
+      tools: [{ name: SMOLPAWS_MEMORY_TOOL_NAME, params: { root: "/tmp" } }],
+    });
+    settings.conversation_settings = {
+      ...settings.conversation_settings,
+      tool_module_qualnames: {
+        [SMOLPAWS_MEMORY_TOOL_NAME]: "untrusted_memory_module",
+      },
+    };
+
+    const payload = buildStartConversationRequest({ settings });
+
+    expect(payload.agent_settings?.tools).not.toContainEqual(
+      expect.objectContaining({ name: SMOLPAWS_MEMORY_TOOL_NAME }),
+    );
+    expect(payload.tool_module_qualnames).toBeUndefined();
+  });
+
+  it("does not inject insider memory capabilities for non-insider conversations", () => {
     const payload = buildStartConversationRequest({
       settings: makeSettings({ agent_kind: "openhands" }),
     });
@@ -272,6 +319,7 @@ describe("buildStartConversationRequest — agentProfileId path", () => {
         | undefined
     )?.system_message_suffix;
     expect(suffix ?? "").not.toContain("SMOLPAWS_INSIDER");
+    expect(suffix ?? "").not.toContain("smolpaws_memory");
   });
 
   it("suppresses secrets_encrypted when launching from a profile", () => {

@@ -1,0 +1,36 @@
+name: SmolPaws memory tests
+
+on:
+  pull_request:
+    paths:
+      - "tools/smolpaws_memory_*.py"
+      - "__tests__/tools/python/**"
+      - ".github/workflows/smolpaws-memory-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/smolpaws_memory_*.py"
+      - "__tests__/tools/python/**"
+      - ".github/workflows/smolpaws-memory-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install agent runtime
+        run: pip install openhands-sdk==1.42.1
+
+      - name: Test shared memory store and tool
+        env:
+          OPENHANDS_SUPPRESS_BANNER: "1"
+        run: python -m unittest discover -s __tests__/tools/python -v

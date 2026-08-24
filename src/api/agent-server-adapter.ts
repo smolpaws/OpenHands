@@ -49,6 +49,10 @@ import {
   SMOLPAWS_TAG_VALUE_INSIDER,
 } from "#/components/features/insider-cat/call-the-cat";
 import { INSIDER_SMOLPAWS_SYSTEM_SUFFIX } from "#/components/features/insider-cat/insider-identity";
+import {
+  SMOLPAWS_MEMORY_TOOL_MODULE,
+  SMOLPAWS_MEMORY_TOOL_NAME,
+} from "#/constants/smolpaws-memory";
 
 export interface DirectConversationInfo {
   id: string;
@@ -1056,15 +1060,24 @@ export interface StartConversationOptions {
   extraTags?: Record<string, string>;
 }
 
-/**
- * Return agent settings with the insider SmolPaws identity + local-environment
- * briefing appended to the system prompt (`agent_context.system_message_suffix`),
- * preserving any existing suffix (e.g. the dev runtime-services block).
- */
-function withInsiderSystemSuffix(
+/** Reserve the memory tool name so settings cannot grant it to other agents. */
+function withoutInsiderMemoryTool(
   agentSettings: AgentSettingsPayload,
 ): AgentSettingsPayload {
-  const context = toRecord(agentSettings.agent_context);
+  if (!agentSettings.tools) return agentSettings;
+  return {
+    ...agentSettings,
+    tools: agentSettings.tools.filter(
+      (tool) => tool.name !== SMOLPAWS_MEMORY_TOOL_NAME,
+    ),
+  };
+}
+
+function withInsiderCapabilities(
+  agentSettings: AgentSettingsPayload,
+): AgentSettingsPayload {
+  const sanitized = withoutInsiderMemoryTool(agentSettings);
+  const context = toRecord(sanitized.agent_context);
   const existing =
     typeof context.system_message_suffix === "string"
       ? context.system_message_suffix
@@ -1073,11 +1086,15 @@ function withInsiderSystemSuffix(
     ? `${existing}\n\n${INSIDER_SMOLPAWS_SYSTEM_SUFFIX}`
     : INSIDER_SMOLPAWS_SYSTEM_SUFFIX;
   return {
-    ...agentSettings,
+    ...sanitized,
     agent_context: {
       ...context,
       system_message_suffix: suffix,
     },
+    tools: [
+      ...(sanitized.tools ?? []),
+      { name: SMOLPAWS_MEMORY_TOOL_NAME, params: {} },
+    ],
   };
 }
 
@@ -1098,13 +1115,15 @@ export function buildStartConversationRequest(
     sourceAgentSettings,
     options.runtimeServicesInfo,
   );
-  // Insider SmolPaws: append its identity + local-environment briefing to the
-  // system prompt (not the chat) for smolpaws=insider conversations. Applies on
-  // the inline agent_settings path; the profile path resolves its own context.
-  const agentSettings =
-    options.extraTags?.[SMOLPAWS_TAG_KEY] === SMOLPAWS_TAG_VALUE_INSIDER
-      ? withInsiderSystemSuffix(builtAgentSettings)
-      : builtAgentSettings;
+  const isInlineInsider =
+    !options.agentProfileId &&
+    launchAgentKind === "openhands" &&
+    options.extraTags?.[SMOLPAWS_TAG_KEY] === SMOLPAWS_TAG_VALUE_INSIDER;
+  // The memory tool is a reserved capability: strip any settings-provided copy,
+  // then add the server-executed implementation only for tagged insider launches.
+  const agentSettings = isInlineInsider
+    ? withInsiderCapabilities(builtAgentSettings)
+    : withoutInsiderMemoryTool(builtAgentSettings);
   const acpServerTag = acpMode
     ? getAcpServerTag(sourceAgentSettings)
     : undefined;
@@ -1138,8 +1157,8 @@ export function buildStartConversationRequest(
     // agent-settings-only; the Canvas UI tool is a top-level client tool and
     // therefore works on both inline-agent and profile launch paths.
     //
-    // Persistent memory is NOT on that boundary: ``load_memory`` is a global
-    // user preference, so the agent-server stamps the stored
+    // Generic SDK persistent memory is NOT on that boundary: ``load_memory``
+    // is a global user preference, so the agent-server stamps the stored
     // ``agent_settings.agent_context.load_memory`` onto the profile-resolved
     // agent the same way it already applies the global ``mcp_config``. The
     // toggle therefore applies to both launch paths, and the client must not
@@ -1239,6 +1258,11 @@ export function buildStartConversationRequest(
   delete toolModuleQualnames[LEGACY_CANVAS_UI_TOOL_NAME];
   delete toolModuleQualnames[CANVAS_UI_CLIENT_TOOL_NAME];
   delete toolModuleQualnames[LAUNCH_CHILD_CONVERSATION_TOOL_NAME];
+  delete toolModuleQualnames[SMOLPAWS_MEMORY_TOOL_NAME];
+  if (isInlineInsider) {
+    toolModuleQualnames[SMOLPAWS_MEMORY_TOOL_NAME] =
+      SMOLPAWS_MEMORY_TOOL_MODULE;
+  }
   if (Object.keys(toolModuleQualnames).length > 0) {
     payload.tool_module_qualnames = toolModuleQualnames;
   }
