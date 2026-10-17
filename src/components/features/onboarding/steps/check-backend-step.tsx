@@ -1,8 +1,10 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, ChevronRight } from "lucide-react";
 import { isNoBackend } from "#/api/backend-registry/active-store";
 import type { Backend } from "#/api/backend-registry/types";
+import { getMarsBridge } from "#/api/mars/mars-tunnel-backend";
+import DigitalOceanLogo from "#/assets/branding/digitalocean-logo.svg?react";
 import {
   getAgentServerFormDefaults,
   getLockedCloudHost,
@@ -23,6 +25,7 @@ import { I18nKey } from "#/i18n/declaration";
 import ChevronDownSmallIcon from "#/icons/chevron-down-small.svg?react";
 import { cn } from "#/utils/utils";
 import { getBackendStatusLabel } from "#/components/features/backends/backend-status-label";
+import { OnboardingDigitalOceanConnect } from "./onboarding-digitalocean-connect";
 
 interface CheckBackendStepProps {
   onBack?: () => void;
@@ -161,6 +164,12 @@ export function CheckBackendStep({
     ? null
     : (healthByBackendId[backend.id]?.lastError ?? null);
   const [configurationOpen, setConfigurationOpen] = React.useState(false);
+  const [digitalOceanOpen, setDigitalOceanOpen] = React.useState(false);
+  // Match the Manage Backends gate: the tunnel lives in the main process, so
+  // only a page with `window.marsBridge` can offer DigitalOcean, and a
+  // locked-to-Cloud deployment offers Cloud alone.
+  const canUseDigitalOcean =
+    getMarsBridge() !== null && lockedCloudHost === null;
 
   React.useEffect(() => {
     if (isConnected === true) {
@@ -233,6 +242,20 @@ export function CheckBackendStep({
       : I18nKey.BACKEND$ADD_TITLE
     : I18nKey.ONBOARDING$BACKEND_TITLE;
 
+  if (digitalOceanOpen) {
+    return (
+      <div
+        data-testid="onboarding-step-check-backend"
+        className="flex flex-col gap-6"
+      >
+        <OnboardingDigitalOceanConnect
+          onBack={() => setDigitalOceanOpen(false)}
+          onConnected={onNext}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       data-testid="onboarding-step-check-backend"
@@ -295,6 +318,36 @@ export function CheckBackendStep({
           />
         ) : null}
       </div>
+
+      {canUseDigitalOcean && treatAsNoBackend ? (
+        <div
+          data-testid="onboarding-digitalocean-option"
+          className="flex flex-col gap-2"
+        >
+          <button
+            type="button"
+            data-testid="onboarding-digitalocean-button"
+            onClick={() => setDigitalOceanOpen(true)}
+            className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-base-secondary px-4 py-3 text-left transition-colors hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          >
+            <span
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-raised"
+              aria-hidden
+            >
+              <DigitalOceanLogo width={32} height={32} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-contrast">
+                {t(I18nKey.DO_AGENTS$BADGE)}
+              </span>
+              <span className="mt-0.5 block text-xs leading-tight text-muted">
+                {t(I18nKey.DO_AGENTS$TAB_DESCRIPTION)}
+              </span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+          </button>
+        </div>
+      ) : null}
 
       {hideConfigurationFields ? (
         <div className={actionRowClassName}>
