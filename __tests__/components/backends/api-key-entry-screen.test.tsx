@@ -282,6 +282,39 @@ describe("ApiKeyEntryScreen", () => {
     expect(stored[0].apiKey).toBe("correct-key");
   });
 
+  // @spec — a hosting key typed on a Cloud-hostname origin is persisted as a
+  // `local` backend, so the MARS web bridge (getMarsBridgeHeaders) forwards it
+  // for the served origin instead of skipping it as a Cloud backend (401).
+  it("persists a local backend even when the served origin is a Cloud hostname", async () => {
+    getSettingsMock.mockResolvedValueOnce({ llm_model: "test" });
+
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        ...ORIGINAL_LOCATION,
+        origin: "https://work-1-vwwqhyeiegxmfbth.prod-runtime.all-hands.dev",
+        hostname: "work-1-vwwqhyeiegxmfbth.prod-runtime.all-hands.dev",
+        reload: reloadMock,
+      },
+    });
+
+    renderScreen();
+    const user = userEvent.setup();
+
+    await fillRequiredFields(user, { apiKey: "hosting-key" });
+    await user.click(screen.getByTestId("api-key-entry-submit"));
+
+    await waitFor(() => {
+      expect(reloadMock).toHaveBeenCalled();
+    });
+
+    const stored = JSON.parse(
+      window.localStorage.getItem(BACKENDS_STORAGE_KEY) ?? "[]",
+    );
+    expect(stored[0].kind).toBe("local");
+    expect(stored[0].apiKey).toBe("hosting-key");
+  });
+
   // @spec — Stale key in localStorage does not contaminate the new key
   it("persists only the freshly-entered key, not the stale one", async () => {
     getSettingsMock.mockResolvedValueOnce({ llm_model: "test" });

@@ -471,6 +471,16 @@ export interface BackendFormProps {
    */
   requireApiKey?: boolean;
   /**
+   * Force the persisted backend kind instead of inferring it from the host.
+   * The auth-gate screen (ApiKeyEntryScreen) uses this so a hosting key typed
+   * on a Cloud-hostname origin (e.g. `*.all-hands.dev`) is still stored as a
+   * `local` backend — the kind the MARS web bridge forwards for the served
+   * origin (see `getMarsBridgeHeaders`). A Cloud backend on the served origin
+   * would otherwise be skipped by that forwarding, leaving every `/mars/rpc`
+   * call unauthenticated (401).
+   */
+  fixedKind?: BackendKind;
+  /**
    * When true, hides the name/host/API-key inputs (and related inline
    * errors) while keeping the action row visible — used by onboarding
    * after a successful connection probe.
@@ -504,6 +514,7 @@ export function BackendForm({
   hostReadOnly,
   requireApiKey,
   hideConfigurationFields = false,
+  fixedKind: forceKind,
   onSubmitOverride,
 }: BackendFormProps) {
   const { t } = useTranslation("openhands");
@@ -513,9 +524,11 @@ export function BackendForm({
   // rotating the API key on a cloud backend (e.g. an OHE/enterprise instance
   // on a custom domain) does not silently downgrade it to "local" and switch
   // the auth header from `Authorization: Bearer` to `X-Session-API-Key`.
-  // Only infer from the host when adding a new backend.
+  // When `forceKind` is provided (auth-gate screen), it wins over both the
+  // edit-mode preserved kind and host inference. Otherwise only infer from
+  // the host when adding a new backend.
   const fixedKind: BackendKind | null =
-    mode === "edit" && backend ? backend.kind : null;
+    forceKind ?? (mode === "edit" && backend ? backend.kind : null);
 
   const {
     name,
@@ -549,6 +562,7 @@ export function BackendForm({
       onSubmitted();
     },
     requireApiKey,
+    fixedKind: fixedKind ?? undefined,
     onSubmitOverride,
   });
 

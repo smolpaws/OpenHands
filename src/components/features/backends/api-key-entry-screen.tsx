@@ -106,6 +106,7 @@ export default function ApiKeyEntryScreen() {
             testIdRoot="api-key-entry"
             hostReadOnly
             requireApiKey
+            fixedKind="local"
             onSubmitOverride={handleSubmitOverride}
             renderActions={({ canSubmit, testIdRoot }) => (
               <>
