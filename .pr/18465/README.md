@@ -49,8 +49,7 @@ The wrong-key case is also shown: an invalid typed key is refused up front
 - `before-02-wrong-key-refused.png` — invalid key refused up front
 - `before-03-do-panel-401.png` — DO panel stuck unauthenticated (401)
 - `after-01-hosting-key-gate.png` — same gate (same precondition)
-- `after-02-do-panel.png` — DO panel authenticated after typed key forwarded
-- `after-03-do-agents-authenticated.png` — real agent config listed
+- `after-02-do-panel-authenticated.png` — DO panel authenticated, real config listed
 
 No secrets are present in any screenshot: key/token inputs are `type="password"`
 and raw network payloads (which contained resource IDs) are not published.
